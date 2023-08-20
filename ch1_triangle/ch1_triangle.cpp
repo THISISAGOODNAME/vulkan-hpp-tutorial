@@ -10,6 +10,7 @@
 #include <optional>
 #include <vector>
 #include <set>
+#include <fstream>
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
@@ -104,6 +105,7 @@ private:
         createLogicalDevice();
         createSwapChain();
         createImageViews();
+        createGraphicsPipeline();
     }
 
     void mainLoop() {
@@ -396,6 +398,38 @@ private:
         }
     }
 
+    void createGraphicsPipeline() {
+        auto vertShaderCode = readFile("shaders/shader_base.vert.spv");
+        auto fragShaderCode = readFile("shaders/shader_base.frag.spv");
+
+        vk::ShaderModule vertShaderModule = createShaderModule(vertShaderCode);
+        vk::ShaderModule fragShaderModule = createShaderModule(fragShaderCode);
+
+        vk::PipelineShaderStageCreateInfo vertShaderStageInfo{};
+        vertShaderStageInfo.stage = vk::ShaderStageFlagBits::eVertex;
+        vertShaderStageInfo.module = vertShaderModule;
+        vertShaderStageInfo.pName = "main";
+
+        vk::PipelineShaderStageCreateInfo fragShaderStageInfo{};
+        fragShaderStageInfo.stage = vk::ShaderStageFlagBits::eFragment;
+        fragShaderStageInfo.module = fragShaderModule;
+        fragShaderStageInfo.pName = "main";
+
+        vk::PipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
+
+        device.destroy(vertShaderModule);
+        device.destroy(fragShaderModule);
+    }
+
+    vk::ShaderModule createShaderModule(const std::vector<char>& code) {
+        vk::ShaderModuleCreateInfo createInfo{};
+        createInfo.codeSize = code.size();
+        createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
+
+        vk::ShaderModule shaderModule = device.createShaderModule(createInfo);
+        return shaderModule;
+    }
+
     QueueFamilyIndices findQueueFamilies(const vk::PhysicalDevice& device) {
         QueueFamilyIndices indices;
 
@@ -456,6 +490,24 @@ private:
         }
 
         return true;
+    }
+
+    static std::vector<char> readFile(const std::string& filename) {
+        std::ifstream file(filename, std::ios::ate | std::ios::binary);
+
+        if (!file.is_open()) {
+            throw std::runtime_error("failed to open file!");
+        }
+
+        size_t fileSize = (size_t) file.tellg();
+        std::vector<char> buffer(fileSize);
+
+        file.seekg(0);
+        file.read(buffer.data(), fileSize);
+
+        file.close();
+
+        return buffer;
     }
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
