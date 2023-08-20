@@ -96,6 +96,10 @@ private:
     vk::CommandPool commandPool;
     vk::CommandBuffer commandBuffer;
 
+    vk::Semaphore imageAvailableSemaphore;
+    vk::Semaphore renderFinishedSemaphore;
+    vk::Fence inFlightFence;
+
     void initWindow() {
         glfwInit();
 
@@ -118,15 +122,23 @@ private:
         createFramebuffers();
         createCommandPool();
         createCommandBuffer();
+        createSyncObjects();
     }
 
     void mainLoop() {
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
+            drawFrame();
         }
+
+        device.waitIdle();
     }
 
     void cleanup() {
+        device.destroy(imageAvailableSemaphore);
+        device.destroy(renderFinishedSemaphore);
+        device.destroy(inFlightFence);
+
         device.destroy(commandPool);
 
         for (auto& frameBuffer: swapChainFramebuffers) {
@@ -440,11 +452,21 @@ private:
         subpass.colorAttachmentCount = 1;
         subpass.pColorAttachments = &colorAttachmentRef;
 
+        vk::SubpassDependency dependency{};
+        dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+        dependency.dstSubpass = 0;
+        dependency.srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+        dependency.srcAccessMask = vk::AccessFlagBits::eNone;
+        dependency.dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+        dependency.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
+
         vk::RenderPassCreateInfo renderPassInfo{};
         renderPassInfo.attachmentCount = 1;
         renderPassInfo.pAttachments = &colorAttachment;
         renderPassInfo.subpassCount = 1;
         renderPassInfo.pSubpasses = &subpass;
+        renderPassInfo.dependencyCount = 1;
+        renderPassInfo.pDependencies = &dependency;
 
         renderPass = device.createRenderPass(renderPassInfo);
     }
@@ -611,7 +633,7 @@ private:
         commandBuffer = device.allocateCommandBuffers(allocInfo).front();
     }
 
-    void recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_t imageIndex) {
+    void recordCommandBuffer(vk::CommandBuffer& commandBuffer, uint32_t imageIndex) {
         vk::CommandBufferBeginInfo beginInfo{};
         beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
         beginInfo.pInheritanceInfo = nullptr;
@@ -650,6 +672,53 @@ private:
             commandBuffer.endRenderPass();
         }
         commandBuffer.end();
+    }
+
+    void createSyncObjects() {
+        vk::SemaphoreCreateInfo semaphoreInfo{};
+
+        vk::FenceCreateInfo fenceInfo{};
+        fenceInfo.flags = vk::FenceCreateFlagBits::eSignaled;
+
+        imageAvailableSemaphore = device.createSemaphore(semaphoreInfo);
+        renderFinishedSemaphore = device.createSemaphore(semaphoreInfo);
+        inFlightFence = device.createFence(fenceInfo);
+    }
+
+    void drawFrame() {
+        device.waitForFences(1, &inFlightFence, VK_TRUE, UINT64_MAX);
+        device.resetFences(1, &inFlightFence);
+
+        uint32_t imageIndex = device.acquireNextImageKHR(swapChain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE).value;
+
+        commandBuffer.reset();
+        recordCommandBuffer(commandBuffer, imageIndex);
+
+        vk::Semaphore waitSemaphores[] = {imageAvailableSemaphore};
+        vk::Semaphore signalSemaphores[] = {renderFinishedSemaphore};
+        vk::PipelineStageFlags waitStages[] = {vk::PipelineStageFlagBits::eColorAttachmentOutput};
+        vk::SwapchainKHR swapChains[] = {swapChain};
+
+        vk::SubmitInfo submitInfo{};
+        submitInfo.waitSemaphoreCount = 1;
+        submitInfo.pWaitSemaphores = waitSemaphores;
+        submitInfo.pWaitDstStageMask = waitStages;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &commandBuffer;
+        submitInfo.signalSemaphoreCount = 1;
+        submitInfo.pSignalSemaphores = signalSemaphores;
+
+        graphicsQueue.submit(submitInfo, inFlightFence);
+
+        vk::PresentInfoKHR presentInfo{};
+        presentInfo.waitSemaphoreCount = 1;
+        presentInfo.pWaitSemaphores = signalSemaphores;
+        presentInfo.swapchainCount = 1;
+        presentInfo.pSwapchains = swapChains;
+        presentInfo.pImageIndices = &imageIndex;
+        presentInfo.pResults = nullptr;
+
+        presentQueue.presentKHR(&presentInfo);
     }
 
     vk::ShaderModule createShaderModule(const std::vector<char>& code) {
