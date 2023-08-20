@@ -90,6 +90,7 @@ private:
 
     vk::RenderPass renderPass;
     vk::PipelineLayout pipelineLayout;
+    vk::Pipeline graphicsPipeline;
 
     void initWindow() {
         glfwInit();
@@ -119,6 +120,7 @@ private:
     }
 
     void cleanup() {
+        device.destroy(graphicsPipeline);
         device.destroy(pipelineLayout);
         device.destroy(renderPass);
 
@@ -530,6 +532,30 @@ private:
         pipelineLayoutInfo.pushConstantRangeCount = 0;
         pipelineLayoutInfo.pPushConstantRanges = nullptr;
         pipelineLayout = device.createPipelineLayout(pipelineLayoutInfo);
+
+        vk::GraphicsPipelineCreateInfo pipelineInfo{};
+        pipelineInfo.stageCount = 2;
+        pipelineInfo.pStages = shaderStages;
+        pipelineInfo.pVertexInputState = &vertexInputInfo;
+        pipelineInfo.pInputAssemblyState = &inputAssembly;
+        pipelineInfo.pViewportState = &viewportState;
+        pipelineInfo.pRasterizationState = &rasterizer;
+        pipelineInfo.pMultisampleState = &multisampling;
+        pipelineInfo.pDepthStencilState = nullptr;
+        pipelineInfo.pColorBlendState = &colorBlending;
+        pipelineInfo.pDynamicState = &dynamicState;
+        pipelineInfo.layout = pipelineLayout;
+        pipelineInfo.renderPass = renderPass;
+        pipelineInfo.subpass = 0;
+        pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+        pipelineInfo.basePipelineIndex = -1;
+
+        vk::ResultValue<vk::Pipeline> rvPipeline = device.createGraphicsPipeline(VK_NULL_HANDLE, pipelineInfo);
+        switch ( rvPipeline.result )
+        {
+            case vk::Result::eSuccess: graphicsPipeline = std::move( rvPipeline.value ); break;
+            default: assert( false );  // should never happen
+        }
 
         device.destroy(vertShaderModule);
         device.destroy(fragShaderModule);
