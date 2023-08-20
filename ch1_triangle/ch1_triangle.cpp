@@ -7,6 +7,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <cstdlib>
+#include <optional>
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
@@ -37,6 +38,14 @@ VKAPI_ATTR void VKAPI_CALL vkDestroyDebugUtilsMessengerEXT( VkInstance instance,
     return pfnVkDestroyDebugUtilsMessengerEXT( instance, messenger, pAllocator );
 }
 
+struct QueueFamilyIndices {
+    std::optional<uint32_t> graphicsFamily;
+
+    bool isComplete() {
+        return graphicsFamily.has_value();
+    }
+};
+
 class HelloTriangleApplication {
 public:
     void run() {
@@ -49,8 +58,10 @@ public:
 private:
     GLFWwindow* window = nullptr;
 
-    vk::Instance instance;
-    vk::DebugUtilsMessengerEXT debugMessenger;
+    vk::Instance instance = nullptr;
+    vk::DebugUtilsMessengerEXT debugMessenger = nullptr;
+
+    vk::PhysicalDevice physicalDevice = nullptr;
 
     void initWindow() {
         glfwInit();
@@ -64,6 +75,7 @@ private:
     void initVulkan() {
         createInstance();
         setupDebugMessenger();
+        pickPhysicalDevice();
     }
 
     void mainLoop() {
@@ -148,6 +160,48 @@ private:
         populateDebugMessengerCreateInfo(createInfo);
 
         debugMessenger = instance.createDebugUtilsMessengerEXT(createInfo);
+    }
+
+    void pickPhysicalDevice() {
+        std::vector<vk::PhysicalDevice> devices = instance.enumeratePhysicalDevices();
+
+        for (const auto& device: devices) {
+            if (isDeviceSuitable(device)) {
+                physicalDevice = device;
+                break;
+            }
+        }
+
+        if (!physicalDevice) {
+            throw std::runtime_error("failed to find a suitable GPU!");
+        }
+    }
+
+    bool isDeviceSuitable(const vk::PhysicalDevice& device) {
+        QueueFamilyIndices indices = findQueueFamilies(device);
+
+        return indices.isComplete();
+    }
+
+    QueueFamilyIndices findQueueFamilies(const vk::PhysicalDevice& device) {
+        QueueFamilyIndices indices;
+
+        std::vector<vk::QueueFamilyProperties> queueFamilies = device.getQueueFamilyProperties();
+
+        int i = 0;
+        for (const auto& queueFamily: queueFamilies) {
+            if (queueFamily.queueFlags & vk::QueueFlagBits::eGraphics) {
+                indices.graphicsFamily = i;
+            }
+
+            if (indices.isComplete()) {
+                break;
+            }
+
+            i++;
+        }
+
+        return indices;
     }
 
     std::vector<const char*> getRequiredExtensions() {
