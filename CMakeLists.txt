@@ -8,3 +8,4 @@ add_subdirectory(3rd_party)
 
 # demos
 add_subdirectory(ch0_devenv)
+add_subdirectory(ch1_triangle)
