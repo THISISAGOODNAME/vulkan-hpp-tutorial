@@ -87,6 +87,7 @@ private:
     vk::Format swapChainImageFormat;
     vk::Extent2D swapChainExtent;
     std::vector<vk::ImageView> swapChainImageViews;
+    std::vector<vk::Framebuffer> swapChainFramebuffers;
 
     vk::RenderPass renderPass;
     vk::PipelineLayout pipelineLayout;
@@ -111,6 +112,7 @@ private:
         createImageViews();
         createRenderPass();
         createGraphicsPipeline();
+        createFramebuffers();
     }
 
     void mainLoop() {
@@ -120,6 +122,10 @@ private:
     }
 
     void cleanup() {
+        for (auto& frameBuffer: swapChainFramebuffers) {
+            device.destroy(frameBuffer);
+        }
+
         device.destroy(graphicsPipeline);
         device.destroy(pipelineLayout);
         device.destroy(renderPass);
@@ -559,6 +565,24 @@ private:
 
         device.destroy(vertShaderModule);
         device.destroy(fragShaderModule);
+    }
+
+    void createFramebuffers() {
+        swapChainFramebuffers.resize(swapChainImageViews.size());
+
+        for (int i = 0; i < swapChainImageViews.size(); ++i) {
+            vk::ImageView attachments[] = {swapChainImageViews[i]};
+
+            vk::FramebufferCreateInfo framebufferInfo{};
+            framebufferInfo.renderPass = renderPass;
+            framebufferInfo.attachmentCount = 1;
+            framebufferInfo.pAttachments = attachments;
+            framebufferInfo.width = swapChainExtent.width;
+            framebufferInfo.height = swapChainExtent.height;
+            framebufferInfo.layers = 1;
+
+            swapChainFramebuffers[i] = device.createFramebuffer(framebufferInfo);
+        }
     }
 
     vk::ShaderModule createShaderModule(const std::vector<char>& code) {
