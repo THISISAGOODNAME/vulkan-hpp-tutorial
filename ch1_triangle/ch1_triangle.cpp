@@ -62,6 +62,9 @@ private:
     vk::DebugUtilsMessengerEXT debugMessenger = nullptr;
 
     vk::PhysicalDevice physicalDevice = nullptr;
+    vk::Device device = nullptr;
+
+    vk::Queue graphicsQueue = nullptr;
 
     void initWindow() {
         glfwInit();
@@ -76,6 +79,7 @@ private:
         createInstance();
         setupDebugMessenger();
         pickPhysicalDevice();
+        createLogicalDevice();
     }
 
     void mainLoop() {
@@ -85,6 +89,8 @@ private:
     }
 
     void cleanup() {
+        device.destroy();
+
         if (enableValidationLayers) {
             instance.destroyDebugUtilsMessengerEXT(debugMessenger);
         }
@@ -181,6 +187,34 @@ private:
         QueueFamilyIndices indices = findQueueFamilies(device);
 
         return indices.isComplete();
+    }
+
+    void createLogicalDevice() {
+        QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+
+        vk::DeviceQueueCreateInfo queueCreateInfo{};
+        queueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value();
+        queueCreateInfo.queueCount = 1;
+
+        float queuePriority = 1.0f;
+        queueCreateInfo.pQueuePriorities = &queuePriority;
+
+        vk::PhysicalDeviceFeatures deviceFeatures{};
+
+        vk::DeviceCreateInfo createInfo{};
+        createInfo.pQueueCreateInfos = &queueCreateInfo;
+        createInfo.queueCreateInfoCount = 1;
+        createInfo.pEnabledFeatures = &deviceFeatures;
+        createInfo.enabledExtensionCount = 0;
+        if (enableValidationLayers) {
+            createInfo.enabledLayerCount = validationLayers.size();
+            createInfo.ppEnabledLayerNames = validationLayers.data();
+        } else {
+            createInfo.enabledLayerCount = 0;
+        }
+
+        device = physicalDevice.createDevice(createInfo);
+        graphicsQueue = device.getQueue(indices.graphicsFamily.value(), 0);
     }
 
     QueueFamilyIndices findQueueFamilies(const vk::PhysicalDevice& device) {
