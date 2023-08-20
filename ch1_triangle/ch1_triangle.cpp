@@ -93,6 +93,9 @@ private:
     vk::PipelineLayout pipelineLayout;
     vk::Pipeline graphicsPipeline;
 
+    vk::CommandPool commandPool;
+    vk::CommandBuffer commandBuffer;
+
     void initWindow() {
         glfwInit();
 
@@ -113,6 +116,8 @@ private:
         createRenderPass();
         createGraphicsPipeline();
         createFramebuffers();
+        createCommandPool();
+        createCommandBuffer();
     }
 
     void mainLoop() {
@@ -122,6 +127,8 @@ private:
     }
 
     void cleanup() {
+        device.destroy(commandPool);
+
         for (auto& frameBuffer: swapChainFramebuffers) {
             device.destroy(frameBuffer);
         }
@@ -583,6 +590,66 @@ private:
 
             swapChainFramebuffers[i] = device.createFramebuffer(framebufferInfo);
         }
+    }
+
+    void createCommandPool() {
+        QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
+
+        vk::CommandPoolCreateInfo poolInfo{};
+        poolInfo.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
+        poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+
+        commandPool = device.createCommandPool(poolInfo);
+    }
+
+    void createCommandBuffer() {
+        vk::CommandBufferAllocateInfo allocInfo{};
+        allocInfo.commandPool = commandPool;
+        allocInfo.level = vk::CommandBufferLevel::ePrimary;
+        allocInfo.commandBufferCount = 1;
+
+        commandBuffer = device.allocateCommandBuffers(allocInfo).front();
+    }
+
+    void recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_t imageIndex) {
+        vk::CommandBufferBeginInfo beginInfo{};
+        beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
+        beginInfo.pInheritanceInfo = nullptr;
+
+        commandBuffer.begin(beginInfo);
+        {
+            vk::RenderPassBeginInfo renderPassInfo{};
+            renderPassInfo.renderPass = renderPass;
+            renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
+            renderPassInfo.renderArea = vk::Rect2D( vk::Offset2D( 0, 0 ), swapChainExtent );
+
+            vk::ClearValue clearColor = vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f);
+            renderPassInfo.clearValueCount = 1;
+            renderPassInfo.pClearValues = &clearColor;
+
+            commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
+            {
+                commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
+
+                vk::Viewport viewport{};
+                viewport.x = 0.0f;
+                viewport.y = 0.0f;
+                viewport.width = static_cast<float>(swapChainExtent.width);
+                viewport.height = static_cast<float>(swapChainExtent.height);
+                viewport.minDepth = 0.0f;
+                viewport.maxDepth = 1.0f;
+                commandBuffer.setViewport(0, 1, &viewport);
+
+                vk::Rect2D scissor{};
+                scissor.offset = vk::Offset2D( 0, 0 );
+                scissor.extent = swapChainExtent;
+                commandBuffer.setScissor(0, 1, &scissor);
+
+                commandBuffer.draw(3, 1, 0, 0);
+            }
+            commandBuffer.endRenderPass();
+        }
+        commandBuffer.end();
     }
 
     vk::ShaderModule createShaderModule(const std::vector<char>& code) {
