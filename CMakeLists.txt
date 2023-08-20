@@ -6,4 +6,5 @@ set(CMAKE_CXX_STANDARD 17)
 find_package(Vulkan REQUIRED)
 add_subdirectory(3rd_party)
 
+# demos
 add_subdirectory(ch0_devenv)
