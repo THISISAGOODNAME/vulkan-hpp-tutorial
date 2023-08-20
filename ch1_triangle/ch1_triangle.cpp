@@ -85,6 +85,7 @@ private:
     std::vector<vk::Image> swapChainImages;
     vk::Format swapChainImageFormat;
     vk::Extent2D swapChainExtent;
+    std::vector<vk::ImageView> swapChainImageViews;
 
     void initWindow() {
         glfwInit();
@@ -102,6 +103,7 @@ private:
         pickPhysicalDevice();
         createLogicalDevice();
         createSwapChain();
+        createImageViews();
     }
 
     void mainLoop() {
@@ -111,6 +113,10 @@ private:
     }
 
     void cleanup() {
+        for (auto& imageView: swapChainImageViews) {
+            device.destroy(imageView);
+        }
+
         device.destroy(swapChain);
         device.destroy();
 
@@ -366,6 +372,28 @@ private:
         swapChainImages = device.getSwapchainImagesKHR(swapChain);
         swapChainImageFormat = surfaceFormat.format;
         swapChainExtent = extent;
+    }
+
+    void createImageViews() {
+        swapChainImageViews.resize(swapChainImages.size());
+
+        for (int i = 0; i < swapChainImages.size(); ++i) {
+            vk::ImageViewCreateInfo createInfo{};
+            createInfo.image = swapChainImages[i];
+            createInfo.viewType = vk::ImageViewType::e2D;
+            createInfo.format = swapChainImageFormat;
+            createInfo.components.r = vk::ComponentSwizzle::eIdentity;
+            createInfo.components.g = vk::ComponentSwizzle::eIdentity;
+            createInfo.components.b = vk::ComponentSwizzle::eIdentity;
+            createInfo.components.a = vk::ComponentSwizzle::eIdentity;
+            createInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+            createInfo.subresourceRange.baseMipLevel = 0;
+            createInfo.subresourceRange.levelCount = 1;
+            createInfo.subresourceRange.baseArrayLayer = 0;
+            createInfo.subresourceRange.layerCount = 1;
+
+            swapChainImageViews[i] = device.createImageView(createInfo);
+        }
     }
 
     QueueFamilyIndices findQueueFamilies(const vk::PhysicalDevice& device) {
