@@ -21,7 +21,9 @@ public:
     }
 
 private:
-    GLFWwindow* window;
+    GLFWwindow* window = nullptr;
+
+    vk::Instance instance;
 
     void initWindow() {
         glfwInit();
@@ -33,7 +35,7 @@ private:
     }
 
     void initVulkan() {
-
+        createInstance();
     }
 
     void mainLoop() {
@@ -43,9 +45,35 @@ private:
     }
 
     void cleanup() {
+        instance.destroy();
+
         glfwDestroyWindow(window);
 
         glfwTerminate();
+    }
+
+    void createInstance() {
+        vk::ApplicationInfo appInfo{};
+        appInfo.pApplicationName = "Hello Triangle";
+        appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+        appInfo.pEngineName = "No Engine";
+        appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+        appInfo.apiVersion = VK_API_VERSION_1_0;
+
+        vk::InstanceCreateInfo createInfo{};
+        createInfo.pApplicationInfo = &appInfo;
+
+        uint32_t glfwExtensionCount = 0;
+        const char** glfwExtensions;
+
+        glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+
+        createInfo.enabledExtensionCount = glfwExtensionCount;
+        createInfo.ppEnabledExtensionNames = glfwExtensions;
+
+        createInfo.enabledLayerCount = 0;
+
+        instance = vk::createInstance(createInfo);
     }
 };
 
