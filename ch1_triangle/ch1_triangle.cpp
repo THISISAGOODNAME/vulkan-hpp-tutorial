@@ -15,6 +15,8 @@
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 
+const int MAX_FRAMES_IN_FLIGHT = 2;
+
 const std::vector<const char*> validationLayers = {
         "VK_LAYER_KHRONOS_validation"
 };
@@ -94,11 +96,12 @@ private:
     vk::Pipeline graphicsPipeline;
 
     vk::CommandPool commandPool;
-    vk::CommandBuffer commandBuffer;
+    std::vector<vk::CommandBuffer> commandBuffers;
 
-    vk::Semaphore imageAvailableSemaphore;
-    vk::Semaphore renderFinishedSemaphore;
-    vk::Fence inFlightFence;
+    std::vector<vk::Semaphore> imageAvailableSemaphores;
+    std::vector<vk::Semaphore> renderFinishedSemaphores;
+    std::vector<vk::Fence> inFlightFences;
+    uint32_t currentFrame = 0;
 
     void initWindow() {
         glfwInit();
@@ -121,7 +124,7 @@ private:
         createGraphicsPipeline();
         createFramebuffers();
         createCommandPool();
-        createCommandBuffer();
+        createCommandBuffers();
         createSyncObjects();
     }
 
@@ -135,9 +138,12 @@ private:
     }
 
     void cleanup() {
-        device.destroy(imageAvailableSemaphore);
-        device.destroy(renderFinishedSemaphore);
-        device.destroy(inFlightFence);
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            device.destroy(imageAvailableSemaphores[i]);
+            device.destroy(renderFinishedSemaphores[i]);
+            device.destroy(inFlightFences[i]);
+        }
+
 
         device.destroy(commandPool);
 
@@ -624,13 +630,15 @@ private:
         commandPool = device.createCommandPool(poolInfo);
     }
 
-    void createCommandBuffer() {
+    void createCommandBuffers() {
+        commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+
         vk::CommandBufferAllocateInfo allocInfo{};
         allocInfo.commandPool = commandPool;
         allocInfo.level = vk::CommandBufferLevel::ePrimary;
-        allocInfo.commandBufferCount = 1;
+        allocInfo.commandBufferCount = commandBuffers.size();
 
-        commandBuffer = device.allocateCommandBuffers(allocInfo).front();
+        commandBuffers = device.allocateCommandBuffers(allocInfo);
     }
 
     void recordCommandBuffer(vk::CommandBuffer& commandBuffer, uint32_t imageIndex) {
@@ -675,27 +683,33 @@ private:
     }
 
     void createSyncObjects() {
+        imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+        renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+        inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+
         vk::SemaphoreCreateInfo semaphoreInfo{};
 
         vk::FenceCreateInfo fenceInfo{};
         fenceInfo.flags = vk::FenceCreateFlagBits::eSignaled;
 
-        imageAvailableSemaphore = device.createSemaphore(semaphoreInfo);
-        renderFinishedSemaphore = device.createSemaphore(semaphoreInfo);
-        inFlightFence = device.createFence(fenceInfo);
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            imageAvailableSemaphores[i] = device.createSemaphore(semaphoreInfo);
+            renderFinishedSemaphores[i] = device.createSemaphore(semaphoreInfo);
+            inFlightFences[i] = device.createFence(fenceInfo);
+        }
     }
 
     void drawFrame() {
-        device.waitForFences(1, &inFlightFence, VK_TRUE, UINT64_MAX);
-        device.resetFences(1, &inFlightFence);
+        device.waitForFences(1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+        device.resetFences(1, &inFlightFences[currentFrame]);
 
-        uint32_t imageIndex = device.acquireNextImageKHR(swapChain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE).value;
+        uint32_t imageIndex = device.acquireNextImageKHR(swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE).value;
 
-        commandBuffer.reset();
-        recordCommandBuffer(commandBuffer, imageIndex);
+        commandBuffers[currentFrame].reset();
+        recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
 
-        vk::Semaphore waitSemaphores[] = {imageAvailableSemaphore};
-        vk::Semaphore signalSemaphores[] = {renderFinishedSemaphore};
+        vk::Semaphore waitSemaphores[] = {imageAvailableSemaphores[currentFrame]};
+        vk::Semaphore signalSemaphores[] = {renderFinishedSemaphores[currentFrame]};
         vk::PipelineStageFlags waitStages[] = {vk::PipelineStageFlagBits::eColorAttachmentOutput};
         vk::SwapchainKHR swapChains[] = {swapChain};
 
@@ -704,11 +718,11 @@ private:
         submitInfo.pWaitSemaphores = waitSemaphores;
         submitInfo.pWaitDstStageMask = waitStages;
         submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &commandBuffer;
+        submitInfo.pCommandBuffers = &commandBuffers[currentFrame];
         submitInfo.signalSemaphoreCount = 1;
         submitInfo.pSignalSemaphores = signalSemaphores;
 
-        graphicsQueue.submit(submitInfo, inFlightFence);
+        graphicsQueue.submit(submitInfo, inFlightFences[currentFrame]);
 
         vk::PresentInfoKHR presentInfo{};
         presentInfo.waitSemaphoreCount = 1;
