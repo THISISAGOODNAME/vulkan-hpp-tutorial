@@ -88,6 +88,7 @@ private:
     vk::Extent2D swapChainExtent;
     std::vector<vk::ImageView> swapChainImageViews;
 
+    vk::RenderPass renderPass;
     vk::PipelineLayout pipelineLayout;
 
     void initWindow() {
@@ -107,6 +108,7 @@ private:
         createLogicalDevice();
         createSwapChain();
         createImageViews();
+        createRenderPass();
         createGraphicsPipeline();
     }
 
@@ -118,6 +120,7 @@ private:
 
     void cleanup() {
         device.destroy(pipelineLayout);
+        device.destroy(renderPass);
 
         for (auto& imageView: swapChainImageViews) {
             device.destroy(imageView);
@@ -400,6 +403,35 @@ private:
 
             swapChainImageViews[i] = device.createImageView(createInfo);
         }
+    }
+
+    void createRenderPass() {
+        vk::AttachmentDescription colorAttachment{};
+        colorAttachment.format = swapChainImageFormat;
+        colorAttachment.samples = vk::SampleCountFlagBits::e1;
+        colorAttachment.loadOp = vk::AttachmentLoadOp::eClear;
+        colorAttachment.storeOp = vk::AttachmentStoreOp::eStore;
+        colorAttachment.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
+        colorAttachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+        colorAttachment.initialLayout = vk::ImageLayout::eUndefined;
+        colorAttachment.finalLayout = vk::ImageLayout::ePresentSrcKHR;
+
+        vk::AttachmentReference colorAttachmentRef{};
+        colorAttachmentRef.attachment = 0;
+        colorAttachmentRef.layout = vk::ImageLayout::eColorAttachmentOptimal;
+
+        vk::SubpassDescription subpass{};
+        subpass.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
+        subpass.colorAttachmentCount = 1;
+        subpass.pColorAttachments = &colorAttachmentRef;
+
+        vk::RenderPassCreateInfo renderPassInfo{};
+        renderPassInfo.attachmentCount = 1;
+        renderPassInfo.pAttachments = &colorAttachment;
+        renderPassInfo.subpassCount = 1;
+        renderPassInfo.pSubpasses = &subpass;
+
+        renderPass = device.createRenderPass(renderPassInfo);
     }
 
     void createGraphicsPipeline() {
