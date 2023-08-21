@@ -159,6 +159,8 @@ private:
 
     vk::Image textureImage;
     vk::DeviceMemory textureImageMemory;
+    vk::ImageView textureImageView;
+    vk::Sampler textureSampler;
 
     std::vector<vk::Buffer> uniformBuffers;
     std::vector<vk::DeviceMemory> uniformBuffersMemory;
@@ -203,6 +205,8 @@ private:
         createFramebuffers();
         createCommandPool();
         createTextureImage();
+        createTextureImageView();
+        createTextureSampler();
         createVertexBuffer();
         createIndexBuffer();
         createUniformBuffers();
@@ -235,6 +239,9 @@ private:
 
     void cleanup() {
         cleanupSwapChain();
+
+        device.destroy(textureSampler);
+        device.destroy(textureImageView);
 
         device.destroy(textureImage);
         device.freeMemory(textureImageMemory);
@@ -442,7 +449,9 @@ private:
             swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
         }
 
-        return indices.isComplete() && extensionsSupported && swapChainAdequate;
+        vk::PhysicalDeviceFeatures supportedFeatures = device.getFeatures();
+
+        return indices.isComplete() && extensionsSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;
     }
 
     bool checkDeviceExtensionSupport(const vk::PhysicalDevice& device) {
@@ -472,6 +481,7 @@ private:
         }
 
         vk::PhysicalDeviceFeatures deviceFeatures{};
+        deviceFeatures.samplerAnisotropy = VK_TRUE;
 
         vk::DeviceCreateInfo createInfo{};
         createInfo.queueCreateInfoCount = queueCreateInfos.size();
@@ -542,21 +552,7 @@ private:
         swapChainImageViews.resize(swapChainImages.size());
 
         for (int i = 0; i < swapChainImages.size(); ++i) {
-            vk::ImageViewCreateInfo createInfo{};
-            createInfo.image = swapChainImages[i];
-            createInfo.viewType = vk::ImageViewType::e2D;
-            createInfo.format = swapChainImageFormat;
-            createInfo.components.r = vk::ComponentSwizzle::eIdentity;
-            createInfo.components.g = vk::ComponentSwizzle::eIdentity;
-            createInfo.components.b = vk::ComponentSwizzle::eIdentity;
-            createInfo.components.a = vk::ComponentSwizzle::eIdentity;
-            createInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-            createInfo.subresourceRange.baseMipLevel = 0;
-            createInfo.subresourceRange.levelCount = 1;
-            createInfo.subresourceRange.baseArrayLayer = 0;
-            createInfo.subresourceRange.layerCount = 1;
-
-            swapChainImageViews[i] = device.createImageView(createInfo);
+            swapChainImageViews[i] = createImageView(swapChainImages[i], swapChainImageFormat);
         }
     }
 
@@ -911,6 +907,48 @@ private:
             commandBuffer.pipelineBarrier(sourceStage, destinationStage, {}, 0, nullptr, 0, nullptr, 1, &barrier);
         }
         endSingleTimeCommands(commandBuffer);
+    }
+
+    void createTextureImageView() {
+        textureImageView = createImageView(textureImage, vk::Format::eR8G8B8A8Srgb);
+    }
+
+    vk::ImageView createImageView(vk::Image image, vk::Format format) {
+        vk::ImageViewCreateInfo viewInfo{};
+        viewInfo.image = image;
+        viewInfo.viewType = vk::ImageViewType::e2D;
+        viewInfo.format = format;
+        viewInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+        viewInfo.subresourceRange.baseMipLevel = 0;
+        viewInfo.subresourceRange.levelCount = 1;
+        viewInfo.subresourceRange.baseArrayLayer = 0;
+        viewInfo.subresourceRange.layerCount = 1;
+
+        vk::ImageView imageView = device.createImageView(viewInfo);
+        return imageView;
+    }
+
+    void createTextureSampler() {
+        vk::PhysicalDeviceProperties properties = physicalDevice.getProperties();
+
+        vk::SamplerCreateInfo samplerInfo{};
+        samplerInfo.magFilter = vk::Filter::eLinear;
+        samplerInfo.minFilter = vk::Filter::eLinear;
+        samplerInfo.addressModeU = vk::SamplerAddressMode::eRepeat;
+        samplerInfo.addressModeV = vk::SamplerAddressMode::eRepeat;
+        samplerInfo.addressModeW = vk::SamplerAddressMode::eRepeat;
+        samplerInfo.anisotropyEnable = VK_TRUE;
+        samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
+        samplerInfo.borderColor = vk::BorderColor::eIntOpaqueBlack;
+        samplerInfo.unnormalizedCoordinates = VK_FALSE;
+        samplerInfo.compareEnable = VK_FALSE;
+        samplerInfo.compareOp = vk::CompareOp::eAlways;
+        samplerInfo.mipmapMode = vk::SamplerMipmapMode::eLinear;
+        samplerInfo.mipLodBias = 0.0f;
+        samplerInfo.minLod = 0.0f;
+        samplerInfo.maxLod = 0.0f;
+
+        textureSampler = device.createSampler(samplerInfo);
     }
 
     void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory) {
