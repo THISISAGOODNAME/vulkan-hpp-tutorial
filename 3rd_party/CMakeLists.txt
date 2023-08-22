@@ -14,3 +14,7 @@ target_include_directories(glm INTERFACE glm)
 # stb
 add_library(stb INTERFACE)
 target_include_directories(stb INTERFACE stb)
+
+# tinyobjloader
+add_library(tinyobjloader INTERFACE)
+target_include_directories(tinyobjloader INTERFACE tinyobjloader)
