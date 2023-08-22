@@ -604,11 +604,11 @@ private:
         depthAttachment.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
         depthAttachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
         depthAttachment.initialLayout = vk::ImageLayout::eUndefined;
-        depthAttachment.finalLayout = vk::ImageLayout::eDepthAttachmentOptimal;
+        depthAttachment.finalLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
 
         vk::AttachmentReference depthAttachmentRef{};
         depthAttachmentRef.attachment = 1;
-        depthAttachmentRef.layout = vk::ImageLayout::eDepthAttachmentOptimal;
+        depthAttachmentRef.layout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
 
         vk::SubpassDescription subpass{};
         subpass.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
