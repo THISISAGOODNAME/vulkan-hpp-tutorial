@@ -5,6 +5,23 @@ Vulkan tutorial using [vulkan-hpp](https://github.com/KhronosGroup/Vulkan-Hpp)
 
 1. vulkan sdk ^1.3.243.0
 
+# screenshots
+
+## tiranlgle
+![](screenshots/Snipaste_2023-08-23_10-06-24.png)
+## vertex buffer & index buffer
+![](screenshots/Snipaste_2023-08-23_10-06-55.png)
+## uniform buffer
+![](screenshots/Snipaste_2023-08-23_10-06-41.png)
+## texture mapping
+![](screenshots/Snipaste_2023-08-23_10-07-09.png)
+## depth buffer
+![](screenshots/Snipaste_2023-08-23_10-07-27.png)
+# load model
+![](screenshots/Snipaste_2023-08-23_10-07-44.png)
+# compute particles
+![](screenshots/Snipaste_2023-08-23_10-08-05.png)
+
 # license
 
 1. [texture.jpg](https://vulkan-tutorial.com/images/texture.jpg) [CC0 licensed image](https://pixabay.com/en/statue-sculpture-fig-historically-1275469/) 
