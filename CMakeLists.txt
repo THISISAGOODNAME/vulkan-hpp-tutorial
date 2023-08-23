@@ -17,3 +17,5 @@ add_subdirectory(ch6_loadmodels)
 add_subdirectory(ch7_generatingmipmaps)
 add_subdirectory(ch8_multisampling)
 add_subdirectory(ch9_computeshader)
+## raii demos
+add_subdirectory(raii)
