@@ -1,2 +1,3 @@
 add_subdirectory(ch0_devenv)
 add_subdirectory(ch1_triangle)
+add_subdirectory(ch2_vertexbuffer)
