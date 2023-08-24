@@ -105,21 +105,13 @@ private:
     std::vector<vk::raii::Fence> inFlightFences;
     uint32_t currentFrame = 0;
 
-    bool framebufferResized = false;
-
     void initWindow() {
         glfwInit();
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
         window = glfwCreateWindow(WIDTH, HEIGHT, "vulkan-hpp", nullptr, nullptr);
-        glfwSetWindowUserPointer(window, this);
-        glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
-    }
-
-    static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
-        auto app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
-        app->framebufferResized = true;
     }
 
     void initVulkan() {
@@ -147,66 +139,9 @@ private:
         device.waitIdle();
     }
 
-    void cleanupSwapChain() {
-//        for (auto& swapChainFramebuffer : swapChainFramebuffers) {
-//            device.destroy(swapChainFramebuffer);
-//            //swapChainFramebuffer.clear();
-//        }
-//
-//        for (auto& swapChainImageView : swapChainImageViews) {
-//            device.destroy(swapChainImageView);
-//        }
-//
-//        device.destroy(swapChain);
-        swapChainFramebuffers.clear();
-        swapChainImageViews.clear();
-        swapChain = nullptr;
-    }
-
     void cleanup() {
-        cleanupSwapChain();
-
-//        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-//            device.destroy(imageAvailableSemaphores[i]);
-//            device.destroy(renderFinishedSemaphores[i]);
-//            device.destroy(inFlightFences[i]);
-//        }
-//
-//        device.destroy(commandPool);
-//
-//        device.destroy(graphicsPipeline);
-//        device.destroy(pipelineLayout);
-//        device.destroy(renderPass);
-//
-//        device.destroy();
-//
-//        if (enableValidationLayers) {
-//            instance.destroyDebugUtilsMessengerEXT(debugMessenger);
-//        }
-//
-//        instance.destroy(surface);
-//        instance.destroy();
-
         glfwDestroyWindow(window);
-
         glfwTerminate();
-    }
-
-    void recreateSwapChain() {
-        int width = 0, height = 0;
-        glfwGetFramebufferSize(window, &width, &height);
-        while (width == 0 || height == 0) {
-            glfwGetFramebufferSize(window, &width, &height);
-            glfwWaitEvents();
-        }
-
-        device.waitIdle();
-
-        cleanupSwapChain();
-
-        createSwapChain();
-        createImageViews();
-        createFramebuffers();
     }
 
     void createInstance() {
@@ -754,9 +689,6 @@ private:
         // vk::ResultValue<uint32_t> rvImageIndex = device.acquireNextImageKHR(swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE);
         std::tie( result, imageIndex ) = swapChain.acquireNextImage(UINT64_MAX, *imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE);
         switch (result) {
-            case vk::Result::eErrorOutOfDateKHR:
-                recreateSwapChain();
-                return;
             case vk::Result::eSuccess:
             case vk::Result::eSuboptimalKHR:
                 break;
@@ -796,21 +728,12 @@ private:
 
         result = presentQueue.presentKHR(presentInfo);
         switch (result) {
-            case vk::Result::eErrorOutOfDateKHR:
             case vk::Result::eSuboptimalKHR:
-                recreateSwapChain();
-                framebufferResized = false;
-                break;
             case vk::Result::eSuccess:
                 break;
             default:
                 throw std::runtime_error("failed to present swap chain image!");
                 break;
-        }
-
-        if (framebufferResized) {
-            recreateSwapChain();
-            framebufferResized = false;
         }
 
         currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
