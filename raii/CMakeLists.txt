@@ -1,6 +1,7 @@
 add_subdirectory(ch0_devenv)
 add_subdirectory(ch1_triangle)
 add_subdirectory(ch2_vertexbuffer)
+add_subdirectory(ch3_uniformbuffer)
 add_subdirectory(ch6_loadmodels)
 add_subdirectory(ch7_generatingmipmaps)
 add_subdirectory(ch8_multisampling)
